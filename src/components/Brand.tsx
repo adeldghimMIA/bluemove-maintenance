@@ -6,11 +6,11 @@ export function Logo({ size = 40 }: { size?: number }) {
   return (
     <Link to="/" className="flex items-center gap-2.5 rounded-xl" aria-label="BlueMove, accueil">
       <img
-        src="/logo-mark.jpeg"
+        src="/logo-mark.png"
         alt=""
         width={size * 1.7}
         height={size}
-        className="rounded-lg object-contain mix-blend-multiply"
+        className="rounded-lg object-contain"
         style={{ height: size, width: 'auto' }}
       />
       <span className="font-display text-[22px] leading-none font-extrabold tracking-tight">

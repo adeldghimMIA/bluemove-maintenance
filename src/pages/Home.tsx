@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-full max-w-5xl flex-col justify-center px-4 py-10 sm:px-6">
       <div className="flex flex-col items-center text-center">
-        <img src="/logo-mark.jpeg" alt="" className="w-64 mix-blend-multiply sm:w-80" />
+        <img src="/logo-mark.png" alt="" className="w-64 sm:w-80" />
         <h1 className="mt-2 font-display text-5xl font-extrabold">
           <span className="text-blue">Blue</span>
           <span className="text-ink">Move</span>

@@ -17,13 +17,13 @@ export function Splash({ onDone }: { onDone: () => void }) {
     <div
       role="status"
       aria-label="Chargement de BlueMove"
-      className={`fixed inset-0 z-[5000] grid place-items-center bg-white transition-opacity duration-400 ${leaving ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[5000] grid place-items-center bg-gradient-to-b from-[#eef4fb] to-[#f9fbfe] transition-opacity duration-400 ${leaving ? 'opacity-0' : 'opacity-100'}`}
     >
       <div className="flex w-full max-w-xl flex-col items-center px-6">
         <img
-          src="/logo-mark.jpeg"
+          src="/logo-mark.png"
           alt=""
-          className="anim-ride w-[min(78vw,440px)] mix-blend-multiply"
+          className="anim-ride w-[min(78vw,440px)]"
         />
         <h1 className="anim-rise mt-4 font-display text-5xl font-extrabold sm:text-6xl" style={{ animationDelay: '.35s' }}>
           <span className="text-blue">Blue</span>
