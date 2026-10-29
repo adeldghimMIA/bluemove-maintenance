@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, LayoutDashboard, Wrench } from 'lucide-react'
+import { ArrowRight, LayoutDashboard, Smartphone, Wrench } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useStore } from '../data/store'
 
@@ -37,7 +37,13 @@ export default function Home() {
           text="Avancement des équipes, pannes restantes et problèmes remontés du terrain."
         />
       </div>
-      <p className="mt-8 text-center text-xs text-muted">Prototype pédagogique · données fictives</p>
+      <Link
+        to="/telephone"
+        className="mx-auto mt-6 hidden min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold text-blue hover:bg-blue-50 md:inline-flex"
+      >
+        <Smartphone size={16} aria-hidden="true" /> Voir l’app dans une vue téléphone
+      </Link>
+      <p className="mt-6 text-center text-xs text-muted">Prototype pédagogique · données fictives</p>
     </main>
   )
 }

@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import { buildSeed } from './seed'
+import { buildSeed, referenceRapport } from './seed'
 import type { Panne, Rapport } from './types'
 
-const KEY = 'bluemove.maintenance.v1'
+const KEY = 'bluemove.maintenance.v2'
 const EVENT = 'bluemove:change'
 
 export interface State {
@@ -14,6 +14,7 @@ let cache: State | null = null
 
 function load(): State {
   try {
+    localStorage.removeItem('bluemove.maintenance.v1')
     const raw = localStorage.getItem(KEY)
     if (raw) return JSON.parse(raw) as State
   } catch {
@@ -24,11 +25,13 @@ function load(): State {
   return seed
 }
 
-function save(state: State) {
+/** Renvoie false si le navigateur refuse l'écriture (quota dépassé, souvent à cause des photos). */
+function save(state: State): boolean {
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
+    return true
   } catch {
-    /* mode privé : l'état reste en mémoire */
+    return false
   }
 }
 
@@ -62,13 +65,34 @@ export function useStore(): State {
   return useSyncExternalStore(subscribe, getState)
 }
 
-export function addRapport(r: Omit<Rapport, 'id' | 'date'>) {
+export type NouveauRapport = Omit<Rapport, 'id' | 'date' | 'reference'>
+
+/** Enregistre le rapport. Renvoie false si le stockage est plein (rien n'est modifié dans ce cas). */
+export function addRapport(r: NouveauRapport): boolean {
   const s = getState()
-  const rapport: Rapport = { ...r, id: `R-${Date.now()}`, date: new Date().toISOString() }
-  setState({
+  const panne = s.pannes.find((p) => p.id === r.panneId)
+  const date = new Date().toISOString()
+  const rapport: Rapport = {
+    ...r,
+    id: `R-${Date.now()}`,
+    date,
+    reference: referenceRapport(panne?.scooterId ?? r.panneId, date),
+  }
+  const next: State = {
     rapports: [...s.rapports, rapport],
     pannes: s.pannes.map((p) => (p.id === r.panneId ? { ...p, statut: r.statut } : p)),
-  })
+  }
+  if (!save(next)) {
+    // Mode privé sans stockage : on garde l'état en mémoire si rien n'était persisté
+    try {
+      if (localStorage.getItem(KEY)) return false
+    } catch {
+      /* stockage inaccessible */
+    }
+  }
+  cache = next
+  window.dispatchEvent(new Event(EVENT))
+  return true
 }
 
 export function resetDemo() {

@@ -7,6 +7,7 @@ import { Splash } from './components/Splash'
 import Home from './pages/Home'
 import Technicien from './pages/Technicien'
 import Dashboard from './pages/Dashboard'
+import Telephone from './pages/Telephone'
 
 function App() {
   const [splash, setSplash] = useState(true)
@@ -18,6 +19,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/technicien" element={<Technicien />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/telephone" element={<Telephone />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

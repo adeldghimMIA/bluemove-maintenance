@@ -36,13 +36,27 @@ export interface Panne {
   statut: Statut
 }
 
+export const CATEGORIES_PROBLEME = [
+  'Pièce manquante',
+  'Panne non résolue',
+  'Scooter à rapatrier',
+  'Vandalisme',
+  'Autre',
+] as const
+export type CategorieProbleme = (typeof CATEGORIES_PROBLEME)[number]
+
 export interface Rapport {
   id: string
+  reference: string
+  titre: string
   panneId: string
   technicienId: string
   date: string
   statut: Exclude<Statut, 'a_faire'>
+  categorie?: CategorieProbleme
   note?: string
+  /** URL publique (photos de démo) ou data URL JPEG compressée (photos prises dans l'app) */
+  photos?: string[]
 }
 
 export interface LatLng {

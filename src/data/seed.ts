@@ -95,31 +95,76 @@ export function buildSeed(): { pannes: Panne[]; rapports: Rapport[] } {
     d.setHours(h, m, 0, 0)
     return d.toISOString()
   }
-  const rapports: Rapport[] = [
-    { id: 'R-1', panneId: 'P-111', technicienId: 't3', date: at(8, 42), statut: 'repare' },
-    { id: 'R-2', panneId: 'P-149', technicienId: 't3', date: at(9, 18), statut: 'repare' },
+  type Demo = Omit<Rapport, 'id' | 'reference' | 'titre' | 'date'> & { h: number; m: number; titre?: string }
+  const demos: Demo[] = [
+    { panneId: 'P-111', technicienId: 't3', h: 8, m: 42, statut: 'repare', photos: ['/photos/pneu-creve.jpg'], note: 'Chambre à air changée, pression contrôlée.' },
+    { panneId: 'P-149', technicienId: 't3', h: 9, m: 18, statut: 'repare' },
     {
-      id: 'R-3',
       panneId: 'P-204',
       technicienId: 't3',
-      date: at(9, 51),
+      h: 9,
+      m: 51,
       statut: 'probleme',
+      categorie: 'Scooter à rapatrier',
+      titre: 'Carte SIM HS, rapatriement atelier',
+      photos: ['/photos/ecran-compteur.jpg'],
       note: 'Module IoT redémarré deux fois mais le scooter ne remonte toujours pas sur le réseau. Je pense que la carte SIM est HS, il faut le rapatrier à l’atelier.',
     },
-    { id: 'R-4', panneId: 'P-256', technicienId: 't4', date: at(8, 55), statut: 'repare' },
     {
-      id: 'R-5',
+      panneId: 'P-045',
+      technicienId: 't3',
+      h: 10,
+      m: 34,
+      statut: 'probleme',
+      categorie: 'Panne non résolue',
+      titre: 'Jante voilée, pneu non remplaçable sur place',
+      photos: ['/photos/pneu-creve.jpg', '/photos/paris-rue.jpg'],
+      note: 'Le pneu est changé mais la jante arrière est voilée, ça frotte contre le garde-boue. Scooter verrouillé, il faut une roue complète.',
+    },
+    { panneId: 'P-256', technicienId: 't4', h: 8, m: 55, statut: 'repare', photos: ['/photos/paris-rue.jpg'] },
+    {
       panneId: 'P-241',
       technicienId: 't4',
-      date: at(9, 37),
+      h: 9,
+      m: 37,
       statut: 'probleme',
+      categorie: 'Pièce manquante',
+      titre: 'Support de feu arrière cassé',
+      photos: ['/photos/eclairage-phare.jpg'],
       note: 'Le support du feu arrière est cassé, pas la pièce dans le camion. Scooter désactivé en attendant, à prévoir demain matin.',
     },
-    { id: 'R-6', panneId: 'P-021', technicienId: 't2', date: at(9, 5), statut: 'repare' },
+    {
+      panneId: 'P-108',
+      technicienId: 't4',
+      h: 10,
+      m: 12,
+      statut: 'probleme',
+      categorie: 'Pièce manquante',
+      titre: 'Batterie de rechange défectueuse',
+      photos: ['/photos/batterie.jpg'],
+      note: 'La batterie de remplacement du camion est elle-même à 0 %, impossible de remettre le scooter en service. Il faut une batterie chargée.',
+    },
+    { panneId: 'P-021', technicienId: 't2', h: 9, m: 5, statut: 'repare' },
+    { panneId: 'P-181', technicienId: 't2', h: 10, m: 2, statut: 'repare', photos: ['/photos/pneu-creve.jpg'], note: 'Pneu avant remplacé.' },
+    { panneId: 'P-014', technicienId: 't2', h: 10, m: 48, statut: 'repare', photos: ['/photos/frein-disque.jpg'], note: 'Plaquettes avant changées, frein purgé et testé.' },
   ]
-  for (const r of rapports) {
-    const p = pannes.find((x) => x.id === r.panneId)
-    if (p) p.statut = r.statut
-  }
+  const rapports: Rapport[] = demos.map(({ h, m, titre, ...r }, i) => {
+    const p = pannes.find((x) => x.id === r.panneId)!
+    p.statut = r.statut
+    const date = at(h, m)
+    return { ...r, id: `R-${i + 1}`, date, reference: referenceRapport(p.scooterId, date), titre: titre ?? titreParDefaut(p) }
+  })
   return { pannes, rapports }
+}
+
+export function referenceRapport(scooterId: string, iso: string): string {
+  const d = new Date(iso)
+  const jj = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0')
+  return `RAP-${jj}${mm}-${hh}-${scooterId.replace('-', '')}`
+}
+
+export function titreParDefaut(p: Pick<Panne, 'type' | 'scooterId' | 'quartier'>): string {
+  return `${p.type} — ${p.scooterId} · ${p.quartier}`
 }

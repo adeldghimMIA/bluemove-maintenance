@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { MapContainer, Marker, TileLayer, Tooltip as MapTooltip } from 'react-leaflet'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { CheckCircle2, CircleDashed, Mic, RotateCcw, Siren, TriangleAlert } from 'lucide-react'
+import { Camera, CheckCircle2, CircleDashed, Mic, RotateCcw, Siren, TriangleAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Header } from '../components/Brand'
-import { UrgenceBadge } from '../components/Badges'
+import { StatutBadge, UrgenceBadge } from '../components/Badges'
+import { Miniatures, PhotoViewer } from '../components/PhotoViewer'
 import { FitBounds, InvalidateOnResize } from '../components/MapBits'
 import { TECHNICIENS } from '../data/seed'
 import { resetDemo, useStore } from '../data/store'
@@ -21,6 +22,7 @@ const SERIES = [
 
 export default function Dashboard() {
   const { pannes, rapports } = useStore()
+  const [visionneuse, setVisionneuse] = useState<{ photos: string[]; i: number; legende: string } | null>(null)
 
   const kpi = useMemo(() => {
     const repare = pannes.filter((p) => p.statut === 'repare').length
@@ -70,6 +72,11 @@ export default function Dashboard() {
     .sort((a, b) => b.date.localeCompare(a.date))
     .map((r) => ({ r, p: pannes.find((p) => p.id === r.panneId)!, t: TECHNICIENS.find((t) => t.id === r.technicienId)! }))
 
+  const derniers = [...rapports]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 9)
+    .map((r) => ({ r, p: pannes.find((p) => p.id === r.panneId)!, t: TECHNICIENS.find((t) => t.id === r.technicienId)! }))
+
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
@@ -84,14 +91,14 @@ export default function Dashboard() {
               Vue globale de la journée : avancement des techniciens, pannes restantes et problèmes remontés du terrain.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-2 text-xs font-bold text-blue">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-2 text-xs font-bold whitespace-nowrap text-blue">
               <span className="h-2 w-2 rounded-full bg-ok" aria-hidden="true" />
               Synchronisé · {rapports.length ? heure(rapports.map((r) => r.date).sort().at(-1)!) : "—"}
             </span>
             <button
               onClick={() => confirm('Réinitialiser toutes les données de la démo ?') && resetDemo()}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold text-ink-2 hover:bg-bg"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold whitespace-nowrap text-ink-2 hover:bg-bg"
             >
               <RotateCcw size={15} aria-hidden="true" /> Réinitialiser la démo
             </button>
@@ -114,7 +121,7 @@ export default function Dashboard() {
           />
         </section>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
           {/* Avancement par technicien */}
           <section className="card p-5" aria-labelledby="tech-title">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -201,20 +208,29 @@ export default function Dashboard() {
                 {problemes.map(({ r, p, t }) => (
                   <li key={r.id} className="rounded-2xl border border-line bg-[#fbfdff] p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-semibold">
-                          {p.scooterId} · <span className="font-normal text-ink-2">{p.type}</span>
-                        </p>
+                      <div className="min-w-0">
+                        <p className="num text-[11px] font-bold tracking-wide text-muted">{r.reference}</p>
+                        <p className="mt-0.5 font-semibold">{r.titre}</p>
                         <p className="text-xs text-muted">
-                          {t.prenom} · {p.quartier} · {heure(r.date)}
+                          {p.scooterId} · {t.prenom} · {p.quartier} · {heure(r.date)}
                         </p>
                       </div>
                       <UrgenceBadge u={p.urgence} compact />
                     </div>
-                    <p className="mt-2.5 flex gap-2 rounded-xl bg-soft p-3 text-sm leading-relaxed text-ink-2">
-                      <Mic size={15} className="mt-0.5 shrink-0 text-blue" aria-label="Note dictée" />
-                      {r.note}
-                    </p>
+                    {r.categorie && (
+                      <span className="mt-2 inline-flex rounded-full bg-[#fdecee] px-2.5 py-1 text-xs font-bold text-critical">{r.categorie}</span>
+                    )}
+                    {r.note && (
+                      <p className="mt-2.5 flex gap-2 rounded-xl bg-soft p-3 text-sm leading-relaxed text-ink-2">
+                        <Mic size={15} className="mt-0.5 shrink-0 text-blue" aria-label="Note dictée" />
+                        {r.note}
+                      </p>
+                    )}
+                    {r.photos?.length ? (
+                      <div className="mt-3">
+                        <Miniatures photos={r.photos} onOpen={(i) => setVisionneuse({ photos: r.photos!, i, legende: r.reference })} />
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -222,7 +238,48 @@ export default function Dashboard() {
           </section>
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <section className="card mt-4 p-5" aria-labelledby="feed-title">
+          <div className="flex items-center justify-between">
+            <h2 id="feed-title" className="text-lg font-bold">
+              Derniers rapports
+            </h2>
+            <span className="num text-sm text-muted">{rapports.length} aujourd’hui</span>
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
+            {derniers.map(({ r, p, t }) => (
+              <li key={r.id} className="flex min-w-0 gap-3 rounded-2xl border border-line bg-[#fbfdff] p-3">
+                {r.photos?.length ? (
+                  <button
+                    onClick={() => setVisionneuse({ photos: r.photos!, i: 0, legende: r.reference })}
+                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-line"
+                    aria-label={`Voir les photos du rapport ${r.reference}`}
+                  >
+                    <img src={r.photos[0]} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    {r.photos.length > 1 && (
+                      <span className="num absolute right-1 bottom-1 rounded-full bg-ink/80 px-1.5 text-[10px] font-bold text-white">+{r.photos.length - 1}</span>
+                    )}
+                  </button>
+                ) : (
+                  <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-bg text-muted" aria-hidden="true">
+                    <Camera size={18} />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="num truncate text-[11px] font-bold tracking-wide text-muted">{r.reference}</p>
+                    <StatutBadge s={r.statut} />
+                  </div>
+                  <p className="mt-0.5 truncate text-sm font-semibold">{r.titre}</p>
+                  <p className="text-xs text-muted">
+                    {t.prenom} · {p.scooterId} · {heure(r.date)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-3 [&>*]:min-w-0">
           <section className="card p-5" aria-labelledby="type-title">
             <h2 id="type-title" className="text-lg font-bold">
               Pannes par type
@@ -289,6 +346,15 @@ export default function Dashboard() {
           </section>
         </div>
       </main>
+      {visionneuse && (
+        <PhotoViewer
+          photos={visionneuse.photos}
+          index={visionneuse.i}
+          legende={visionneuse.legende}
+          onIndex={(i) => setVisionneuse((v) => v && { ...v, i })}
+          onClose={() => setVisionneuse(null)}
+        />
+      )}
     </div>
   )
 }

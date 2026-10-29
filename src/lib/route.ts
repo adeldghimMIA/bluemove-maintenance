@@ -136,3 +136,28 @@ export function formatDuree(min: number): string {
 export function formatDistance(km: number): string {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`
 }
+
+const GMAPS_MAX_ETAPES = 9
+
+/**
+ * Liens Google Maps pour la tournée. Google accepte 9 étapes intermédiaires : au-delà, on découpe en tronçons.
+ * Sans `depart`, Google Maps part de la position actuelle du téléphone.
+ */
+export function googleMapsLiens(tour: LatLng[], depart?: LatLng): { label: string; url: string }[] {
+  const fmt = (p: LatLng) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`
+  const liens: { label: string; url: string }[] = []
+  const parTroncon = GMAPS_MAX_ETAPES + 1
+  for (let i = 0; i < tour.length; i += parTroncon) {
+    const morceau = tour.slice(i, i + parTroncon)
+    const origine = i === 0 ? depart : tour[i - 1]
+    const params = new URLSearchParams({ api: '1', destination: fmt(morceau[morceau.length - 1]), travelmode: 'driving' })
+    if (origine) params.set('origin', fmt(origine))
+    if (morceau.length > 1) params.set('waypoints', morceau.slice(0, -1).map(fmt).join('|'))
+    const fin = Math.min(i + parTroncon, tour.length)
+    liens.push({
+      label: tour.length > parTroncon ? `étapes ${i + 1} à ${fin}` : '',
+      url: `https://www.google.com/maps/dir/?${params.toString()}`,
+    })
+  }
+  return liens
+}

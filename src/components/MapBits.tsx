@@ -20,10 +20,15 @@ export function FitBounds({ points, k }: { points: LatLng[]; k: string }) {
   return null
 }
 
-export function FlyTo({ target }: { target: LatLng | null }) {
+/** Centre la carte sur la cible ; `offsetY` (px) la remonte pour qu'elle reste visible au-dessus d'un panneau. */
+export function FlyTo({ target, offsetY = 0 }: { target: LatLng | null; offsetY?: number }) {
   const map = useMap()
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), 15), { duration: 0.6 })
+    if (!target) return
+    const zoom = Math.max(map.getZoom(), 15)
+    const centre = map.unproject(map.project([target.lat, target.lng], zoom).add([0, offsetY]), zoom)
+    map.flyTo(centre, zoom, { duration: 0.6 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, map])
   return null
 }

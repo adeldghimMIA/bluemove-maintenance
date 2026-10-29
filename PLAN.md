@@ -62,3 +62,67 @@ Sources fournies : `~/Downloads/bluemove-maintenance-map/Gemini_Generated_Image_
 - `npm run build` sans erreur TypeScript.
 - `npm run dev` + test manuel : choisir un technicien → pins affichés → calcul d'itinéraire (ordre cohérent : urgences hautes tôt, trajet sans zigzag) → mode démo téléportation → rapport « réparé » et rapport avec dictée (Chrome) → ouvrir `/dashboard` dans un autre onglet et vérifier la mise à jour des KPI.
 - Après déploiement : ouvrir l'URL Vercel, vérifier les routes `/technicien` et `/dashboard` en accès direct (rewrite) et le micro (HTTPS requis → OK sur Vercel).
+
+---
+
+# Itération 2
+
+
+## Contexte
+Le prototype est en ligne (https://bluemove-maintenance.vercel.app, repo `adeldghimMIA/bluemove-maintenance`). L'utilisateur a remonté 4 points :
+1. **La position affichée n'est pas la vraie.** Cause : `src/pages/Technicien.tsx` (effet `watchPosition`) ignore volontairement tout point GPS à plus de 15 km du dépôt et retombe sur le dépôt (« Position dépôt »). L'ESSEC (Cergy) est à environ 30 km de Paris, donc le GPS réel est jeté. Si le navigateur refuse la géolocalisation, on retombe aussi sur le dépôt, sans rien dire.
+2. Une **vraie navigation type Google Maps** → choix de l'utilisateur : **bouton « Ouvrir dans Google Maps »** avec toute la tournée.
+3. **Nommer le rapport** quand il remonte.
+4. **Photo** prise par le technicien dans le rapport, avec des **photos fictives** (libres de droits) dans les rapports de démo.
+
+## 1. Vraie position (`src/pages/Technicien.tsx`)
+- Supprimer le filtre des 15 km : la position GPS réelle est toujours utilisée et affichée (point bleu).
+- Afficher l'état de la position dans la pastille en haut de la carte : « Position GPS · précision ± X m », « GPS refusé, départ du dépôt » ou « Localisation… ». Ajouter un bouton **« Me localiser »** (recentre la carte et relance `getCurrentPosition` ; c'est ce bouton qui déclenche la demande d'autorisation si elle a été ignorée).
+- Si l'utilisateur est à plus de 15 km de Paris : bandeau discret « Tu es à 32 km de Paris » avec un interrupteur **« Partir du dépôt »**. L'itinéraire part de la vraie position par défaut, du dépôt si l'interrupteur est activé.
+- Le mode démo « simuler mon arrivée » reste prioritaire sur le GPS. Ajouter « Revenir à ma vraie position » pour en sortir.
+- `FitBounds` inclut la position réelle quand elle est à moins de 15 km. Sinon on cadre sur les pannes, pour ne pas dézoomer sur toute l'Île-de-France.
+
+## 2. Bouton Google Maps (`src/lib/route.ts` + panneau tournée)
+- `googleMapsUrl(depart, tour)` → `https://www.google.com/maps/dir/?api=1&origin=lat,lng&destination=<dernière>&waypoints=<lat,lng|…>&travelmode=driving`. Google limite à **9 étapes intermédiaires**, donc on découpe la tournée en tronçons de 10 arrêts : « Ouvrir dans Google Maps (étapes 1 à 10) », puis « (11 à …) ». En pratique, aucun technicien n'a plus de 8 pannes.
+- Bouton principal sous le résumé de l'itinéraire (icône Lucide `Navigation`). Sur mobile, il ouvre l'app Google Maps (lien universel), sinon un nouvel onglet.
+- Dans la fiche d'une panne : bouton **« Y aller »**, un lien Google Maps vers ce seul scooter.
+
+## 3. Rapport nommé (`src/components/ReportModal.tsx`, `src/data/types.ts`, `src/data/store.ts`)
+- `Rapport` gagne `reference` (`RAP-JJMM-BM192`, générée automatiquement), `titre` (modifiable, pré-rempli « Freinage — BM-192 · École Militaire ») et pour un problème une `categorie` : Pièce manquante · Panne non résolue · Scooter à rapatrier · Vandalisme · Autre (sélection en puces, obligatoire si « Signaler un problème »).
+- Champ « Titre du rapport » visible dans le modal, avec son label.
+- Dashboard (`src/pages/Dashboard.tsx`) : chaque problème remonté affiche le titre, la référence, la catégorie (badge) et la note dictée. Ajout d'un fil **« Derniers rapports »** (tous statuts), pour que les rapports « réparé » nommés soient visibles aussi.
+- `store.ts` : clé localStorage passée en `v2` pour régénérer les données de démo avec les nouveaux champs. Normalisation douce si un ancien rapport n'a pas de titre.
+
+## 4. Photos
+**Côté technicien (ReportModal)**
+- Bouton **« Ajouter une photo »** : `<input type="file" accept="image/*" capture="environment">`, qui ouvre l'appareil photo sur téléphone et le sélecteur de fichiers sur ordinateur. Jusqu'à 3 photos, miniatures supprimables.
+- Compression dans le navigateur (`src/lib/photo.ts`) : redimensionnement à 1024 px max sur un canvas, JPEG qualité 0,7, environ 80–150 Ko, stocké en data URL dans `Rapport.photos: string[]`. Si le localStorage est plein, message clair plutôt qu'un plantage (`addRapport` renvoie une erreur gérée).
+- Photo facultative pour « Réparé », conseillée (texte d'aide) pour « Problème ».
+
+**Photos fictives**
+- 6 à 8 photos libres de droits (Unsplash/Pexels, licence permettant la réutilisation), trouvées via recherche web. Sujets : pneu à plat, feu arrière cassé, scooter garé dans une rue parisienne, guidon/compteur, scooter tombé, batterie. Elles sont téléchargées dans `public/photos/` en version légère (≈ 1024 px) et créditées dans `public/photos/CREDITS.md` + le README.
+- Seed (`src/data/seed.ts`) : les rapports de démo existants reçoivent des photos. On ajoute 3 ou 4 rapports fictifs (dont des « réparé » avec photo avant/après) pour un dashboard plus vivant.
+
+**Affichage**
+- Dashboard : miniatures dans chaque rapport, clic pour ouvrir une **visionneuse** (`src/components/PhotoViewer.tsx` : plein écran, Échap/flèches, bouton fermer avec label).
+- Fiche panne côté technicien : si un rapport existe, ses photos s'affichent.
+
+## 5. Mobile d'abord + onglet « Vue téléphone » (demande ajoutée)
+- **Vue technicien sur mobile** : carte plein écran (`100dvh` moins le header) et **bottom sheet** par-dessus, avec 3 crans (aperçu / moitié / plein) commandés par une poignée et un bouton, qui défile à l'intérieur. Safe areas iOS (`env(safe-area-inset-*)`). Header compact : logo réduit, sélecteur de technicien en pleine largeur sur une 2e ligne. Sur ordinateur, la sidebar actuelle reste.
+- Bouton de la carte « Me localiser » en bas à droite, au-dessus de la sheet. Popups Leaflet adaptés au doigt.
+- Dashboard : KPI en 2 colonnes, graphiques et tableau défilables, déjà responsive ; on vérifie à 375 px.
+- **Nouvel onglet `/telephone`** dans la nav (« Vue téléphone », icône `Smartphone`) : maquette d'iPhone en CSS (cadre, Dynamic Island, barre d'état) avec une iframe de 390×844 sur `/technicien`. Bascule Technicien / Opérations dans la maquette, plus un QR code ou le lien pour l'ouvrir sur son vrai téléphone. Sur un vrai téléphone, cette page renvoie directement vers l'app.
+
+## Fichiers touchés
+`src/pages/Technicien.tsx`, `src/lib/route.ts`, `src/components/ReportModal.tsx`, `src/data/{types,store,seed}.ts`, `src/pages/Dashboard.tsx`, nouveaux `src/lib/photo.ts`, `src/components/PhotoViewer.tsx`, `public/photos/*`, `README.md`, `PLAN.md` (on ajoute cette itération).
+
+## Vérification
+- `npm run build` sans erreur.
+- Chrome headless avec `--use-fake-ui-for-media-stream` / géolocalisation simulée impossible, donc pour la position : vérification du code + test manuel par l'utilisateur. Je préciserai ce qui n'a pas pu être testé automatiquement.
+- Test du lien Google Maps généré pour la tournée de Karim (ouverture via `curl -I`, plus vérification que l'URL contient bien les 8 étapes dans l'ordre).
+- Test de `photo.ts` : compression d'une des photos de démo, taille finale < 200 Ko.
+- Captures headless : dashboard avec miniatures, visionneuse, modal de rapport avec titre/catégorie/photo, mobile 375 px.
+- Commit + push sur `main` (Vercel redéploie automatiquement) + `vercel --prod`, puis contrôle des URLs `/`, `/technicien`, `/dashboard` et d'une photo `/photos/…` en 200.
+
+## Ajout : parcours guidé du technicien
+Connexion → « Tu as N pannes à réparer » → Démarrer ma tournée → une étape à la fois (Google Maps → Réparer → Faire mon rapport) → passage automatique à la suivante → écran de fin.
