@@ -48,7 +48,7 @@ export default function Telephone() {
 
   return (
     <div className="flex h-[100dvh] flex-col">
-      <Header />
+      <Header retour={{ label: 'Retour à l’accueil', to: '/' }} />
       <main className="mx-auto grid min-h-0 w-full max-w-[1200px] flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-10 px-6 py-4">
         <section className="max-w-md">
           <p className="eyebrow">Vue téléphone</p>

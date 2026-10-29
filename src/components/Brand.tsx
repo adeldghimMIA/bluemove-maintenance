@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Smartphone, Wrench } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, Smartphone, Wrench } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 /** Vrai quand l'app tourne dans la maquette de téléphone (iframe de /telephone). */
@@ -24,7 +24,13 @@ export function Logo({ size = 40 }: { size?: number }) {
   )
 }
 
-export function Header({ children }: { children?: ReactNode }) {
+export interface Retour {
+  label: string
+  onClick?: () => void
+  to?: string
+}
+
+export function Header({ children, retour }: { children?: ReactNode; retour?: Retour }) {
   const tab = ({ isActive }: { isActive: boolean }, display = 'inline-flex') =>
     `${display} min-h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold transition-colors sm:px-4 ${
       isActive ? 'bg-blue text-white' : 'text-ink-2 hover:bg-blue-50'
@@ -32,6 +38,16 @@ export function Header({ children }: { children?: ReactNode }) {
   return (
     <header className="sticky top-0 z-[1000] border-b border-line/80 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-2 px-3 py-1.5 sm:gap-3 sm:px-6 sm:py-2">
+        {retour &&
+          (retour.to ? (
+            <Link to={retour.to} className="-ml-1 grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink hover:bg-blue-50" aria-label={retour.label} title={retour.label}>
+              <ArrowLeft size={22} />
+            </Link>
+          ) : (
+            <button onClick={retour.onClick} className="-ml-1 grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink hover:bg-blue-50" aria-label={retour.label} title={retour.label}>
+              <ArrowLeft size={22} />
+            </button>
+          ))}
         <Logo size={32} />
         <nav className="ml-auto flex items-center gap-1" aria-label="Vues">
           <NavLink to="/technicien" className={tab} aria-label="Vue technicien">

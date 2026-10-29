@@ -41,7 +41,7 @@ const SESSION_KEY = 'bluemove.session'
 type Cran = 'apercu' | 'moitie' | 'plein'
 const HAUTEUR_CRAN: Record<Cran, string> = { apercu: '200px', moitie: '60%', plein: 'calc(100% - 12px)' }
 type EtatGps = 'attente' | 'ok' | 'refuse' | 'indispo'
-type Vue = 'etape' | 'liste'
+type Vue = 'accueil' | 'etape' | 'liste'
 
 function lire(key: string): string | null {
   try {
@@ -87,7 +87,7 @@ function Connexion({ onChoose }: { onChoose: (id: string) => void }) {
   const { pannes } = useStore()
   return (
     <div className="flex min-h-[100dvh] flex-col">
-      <Header />
+      <Header retour={{ label: 'Retour à l’accueil', to: '/' }} />
       <main className="mx-auto w-full max-w-md flex-1 px-4 pt-6 pb-[max(24px,env(safe-area-inset-bottom))]">
         <img src="/logo-mark.png" alt="" className="mx-auto w-44" />
         <h1 className="mt-3 text-center text-3xl font-extrabold">Connexion technicien</h1>
@@ -145,7 +145,7 @@ function Tournee({ techId, onLogout }: { techId: string; onLogout: () => void })
     return raw ? (JSON.parse(raw) as string[]) : null
   })
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [vue, setVue] = useState<Vue>('etape')
+  const [vue, setVue] = useState<Vue>(() => (lire(`bluemove.ordre.${techId}`) ? 'etape' : 'accueil'))
   const [gps, setGps] = useState<(LatLng & { precision: number }) | null>(null)
   const [etatGps, setEtatGps] = useState<EtatGps>('attente')
   const [simulee, setSimulee] = useState<LatLng | null>(null)
@@ -313,11 +313,27 @@ function Tournee({ techId, onLogout }: { techId: string; onLogout: () => void })
   const monter = () => setCran((c) => (c === 'apercu' ? 'moitie' : 'plein'))
   const descendre = () => setCran((c) => (c === 'plein' ? 'moitie' : 'apercu'))
   const origineGmaps = surGpsReel ? undefined : position
+  // Flèche retour : remonte d'un niveau (fiche → étape → accueil de la tournée → choix du technicien)
+  const surAccueil = vue === 'accueil' || !demarree
+  const retour = selectedId
+    ? { label: vue === 'liste' ? 'Retour à la tournée' : 'Retour à l’étape', onClick: () => setSelectedId(null) }
+    : vue === 'liste'
+      ? { label: 'Retour à l’étape en cours', onClick: () => setVue('etape') }
+      : !surAccueil
+        ? {
+            label: 'Retour à l’accueil de la tournée',
+            onClick: () => {
+              setVue('accueil')
+              if (!desktop) setCran('moitie')
+            },
+          }
+        : { label: 'Changer de technicien', onClick: onLogout }
+
   const focusId = selectedId ?? (vue === 'etape' ? etape?.id : undefined)
 
   return (
     <div className="flex h-[100dvh] flex-col">
-      <Header />
+      <Header retour={retour} />
 
       <main style={sheetStyle} className="relative min-h-0 flex-1 lg:mx-auto lg:flex lg:w-full lg:max-w-[1440px] lg:flex-row-reverse lg:gap-4 lg:p-4">
         {/* Carte */}
@@ -425,7 +441,7 @@ function Tournee({ techId, onLogout }: { techId: string; onLogout: () => void })
                 onRapport={() => setRapportPour(selected)}
                 onPhoto={(photos, i) => setVisionneuse({ photos, i, legende: selected.scooterId })}
               />
-            ) : !demarree ? (
+            ) : surAccueil ? (
               <Briefing
                 prenom={tech.prenom}
                 aFaire={aFaire}
@@ -436,6 +452,8 @@ function Tournee({ techId, onLogout }: { techId: string; onLogout: () => void })
                 depuisDepot={depuisDepot}
                 onDepuisDepot={setDepuisDepot}
                 onStart={() => demarrer(position)}
+                reprise={demarree && tournee!.length > 0 ? { num: numEtape, total: mesPannes.length } : undefined}
+                onReprendre={() => setVue('etape')}
                 onLogout={onLogout}
               />
             ) : etape && vue === 'etape' ? (
@@ -526,6 +544,8 @@ function Briefing({
   depuisDepot,
   onDepuisDepot,
   onStart,
+  reprise,
+  onReprendre,
   onLogout,
 }: {
   prenom: string
@@ -537,13 +557,15 @@ function Briefing({
   depuisDepot: boolean
   onDepuisDepot: (v: boolean) => void
   onStart: () => void
+  reprise?: { num: number; total: number }
+  onReprendre: () => void
   onLogout: () => void
 }) {
   const urgentes = aFaire.filter((p) => p.urgence >= 4).length
   const top = [...aFaire].sort((a, b) => b.urgence - a.urgence).slice(0, 3)
   return (
     <div className="card p-5">
-      <div className="flex items-start justify-between gap-3">
+      <div>
         <div>
           <p className="eyebrow">Bonjour {prenom}</p>
           <h1 className="mt-1 text-2xl leading-tight font-extrabold">
@@ -556,9 +578,6 @@ function Briefing({
             )}
           </h1>
         </div>
-        <button onClick={onLogout} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted hover:bg-bg" aria-label="Changer de technicien">
-          <LogOut size={18} />
-        </button>
       </div>
 
       <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -595,16 +614,29 @@ function Briefing({
       {aFaire.length > 0 && (
         <>
           <button
-            onClick={onStart}
+            onClick={reprise ? onReprendre : onStart}
             disabled={calcul}
             className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-blue text-lg font-bold text-white shadow-[0_10px_24px_rgba(22,100,192,.35)] transition-colors hover:bg-[#1257a8] disabled:opacity-60"
           >
             <Play size={20} fill="currentColor" aria-hidden="true" />
-            {calcul ? 'Calcul de la tournée…' : 'Démarrer ma tournée'}
+            {calcul ? 'Calcul de la tournée…' : reprise ? `Reprendre · étape ${reprise.num}/${reprise.total}` : 'Démarrer ma tournée'}
           </button>
-          <p className="mt-2 text-center text-xs text-muted">L’ordre est calculé selon l’urgence et la proximité des scooters.</p>
+          {reprise ? (
+            <button onClick={onStart} className="mt-2 min-h-11 w-full rounded-xl text-sm font-semibold text-blue hover:bg-blue-50">
+              Recalculer l’ordre depuis ma position
+            </button>
+          ) : (
+            <p className="mt-2 text-center text-xs text-muted">L’ordre est calculé selon l’urgence et la proximité des scooters.</p>
+          )}
         </>
       )}
+
+      <button
+        onClick={onLogout}
+        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-line text-sm font-semibold text-ink-2 hover:bg-bg"
+      >
+        <LogOut size={16} aria-hidden="true" /> Changer de technicien
+      </button>
     </div>
   )
 }

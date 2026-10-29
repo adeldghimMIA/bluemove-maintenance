@@ -81,7 +81,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-full">
-      <Header />
+      <Header retour={{ label: 'Retour à l’accueil', to: '/' }} />
       <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
